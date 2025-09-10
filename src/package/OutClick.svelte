@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte"
+    import { createEventDispatcher, onMount } from "svelte"
 
     const dispatch = createEventDispatcher<{
         outclick: { target: HTMLElement }
@@ -18,8 +18,17 @@
     export let excludeElements: HTMLElement | HTMLElement[] = []
     export let excludeQuerySelectorAll: string = ""
 
+    // DOM element to watch instead of window
+    export let parent: HTMLElement | undefined = undefined
+
     // Now the user can enter a single element or an array of elements. `excludeElements={element}` or `excludeElements={[element1, element2]}`
     $: excludeElementsArray = excludeElements ? castArray(excludeElements) : []
+
+    $: if (parent) {
+        parent.addEventListener("pointerdown", handlePointerdown)
+        parent.addEventListener("pointerup", handlePointerup)
+        parent.addEventListener("keydown", handleKeydown)
+    }
 
     // If the wrapper did contain the event target, allow the `outclick` event to dispatch
     export let includeSelf: boolean = false
@@ -69,7 +78,9 @@
         return false
     }
 
-    const handlePointerdown = (e: PointerEvent): void => {
+    const handlePointerdown = (e: PointerEvent, isWindow?: true): void => {
+        if (isWindow && parent) return
+
         const target = e.target as Detail["target"]
 
         if (isOutsideEventHappen(target)) {
@@ -81,7 +92,9 @@
         }
     }
 
-    const handlePointerup = (e: PointerEvent): void => {
+    const handlePointerup = (e: PointerEvent, isWindow?: true): void => {
+        if (isWindow && parent) return
+
         const target = e.target as Detail["target"]
 
         if (halfClick) return
@@ -93,7 +106,9 @@
         isPointerdownTriggered = false
     }
 
-    const handleKeydown = (e: KeyboardEvent): void => {
+    const handleKeydown = (e: KeyboardEvent, isWindow?: true): void => {
+        if (isWindow && parent) return
+
         const target = e.target as Detail["target"]
 
         if (
@@ -111,13 +126,23 @@
     function castArray(value: any): any[] {
         return Array.isArray(value) ? value : [value]
     }
+
+    onMount(() => {
+        return () => {
+            if (parent) {
+                parent.removeEventListener("pointerdown", handlePointerdown)
+                parent.removeEventListener("pointerup", handlePointerup)
+                parent.removeEventListener("keydown", handleKeydown)
+            }
+        }
+    })
 </script>
 
 <!-- Have this to capture the events -->
 <svelte:window
-    on:pointerdown={handlePointerdown}
-    on:pointerup={handlePointerup}
-    on:keydown={handleKeydown}
+    on:pointerdown={(e) => handlePointerdown(e, true)}
+    on:pointerup={(e) => handlePointerup(e, true)}
+    on:keydown={(e) => handleKeydown(e, true)}
 />
 
 <svelte:element
